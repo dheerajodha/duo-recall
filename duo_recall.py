@@ -12,11 +12,12 @@ console = Console()
 # Define the CLI app
 app = typer.Typer(
     help="A command-line tool for Duolingo users to practice vocabulary.",
-    add_completion=False
+    add_completion=False,
 )
 
 # File path for data
 VOCAB_FILE = Path("my-vocab.json")
+
 
 # --- Utility Functions ---
 def save_vocab_to_file(vocab: List[str]):
@@ -29,12 +30,15 @@ def save_vocab_to_file(vocab: List[str]):
         console.print(f"[red]Error saving file: {e}[/red]")
         raise typer.Exit(code=1)
 
+
 def load_vocab_from_file() -> List[str]:
     """Loads the vocabulary list from a JSON file."""
     if not VOCAB_FILE.exists():
-        console.print(f"[yellow]'{VOCAB_FILE}' not found. Please run 'duo-recall vocab-refresh' first.[/yellow]")
+        console.print(
+            f"[yellow]'{VOCAB_FILE}' not found. Please run 'duo-recall vocab-refresh' first.[/yellow]"
+        )
         raise typer.Exit(code=1)
-    
+
     try:
         with open(VOCAB_FILE, "r") as f:
             return json.load(f)
@@ -42,7 +46,6 @@ def load_vocab_from_file() -> List[str]:
         console.print(f"[red]Error reading '{VOCAB_FILE}': {e}[/red]")
         raise typer.Exit(code=1)
 
-# --- CLI Subcommands ---
 
 # -------------------------------
 # Subcommand 1: vocab-refresh
@@ -50,16 +53,15 @@ def load_vocab_from_file() -> List[str]:
 @app.command(name="vocab-refresh")
 def vocab_refresh(
     username: str = typer.Option(
-        ...,
-        "--username",
-        "-u",
-        help="Your Duolingo username."
+        ..., "--username", "-u", help="Your Duolingo username."
     )
 ):
     """
     Refreshes the local vocabulary list by scraping Duome.eu.
     """
-    console.print(f"[yellow]Starting vocabulary refresh for user: [bold]{username}[/bold]...[/yellow]")
+    console.print(
+        f"[yellow]Starting vocabulary refresh for user: [bold]{username}[/bold]...[/yellow]"
+    )
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -74,23 +76,23 @@ def vocab_refresh(
         # Click on the "Skills" tab
         console.print("[cyan]Clicking 'Skills' tab...[/cyan]")
         page.locator('label[for="tabSkills"]').click()
-        page.wait_for_selector('ul.paddedSkills')
+        page.wait_for_selector("ul.paddedSkills")
 
         # Scrape words from all completed lessons
         completed_words = []
         seen_words = set()
 
         # Get all list items (lessons)
-        lessons = page.locator('ul.paddedSkills > li')
+        lessons = page.locator("ul.paddedSkills > li")
 
         for i in range(lessons.count()):
             lesson = lessons.nth(i)
 
-            #expand the lesson
+            # expand the lesson
             lesson.locator('span[title="Tips and notes"]').click()
 
             # Check for completed lesson criteria
-            is_completed = lesson.locator('.crown.empty').is_visible()
+            is_completed = lesson.locator(".crown.empty").is_visible()
             if is_completed:
                 break
 
@@ -98,11 +100,11 @@ def vocab_refresh(
                 # Click to expand the lesson and show words
                 lesson.click()
                 # Scope the locator to the current lesson to avoid strict mode violation
-                blockquote_locator = lesson.locator('blockquote')
+                blockquote_locator = lesson.locator("blockquote")
                 if blockquote_locator.is_visible():
                     # Scrape the words from the blockquote element
                     # Get all <b> tags within the blockquote
-                    word_elements = blockquote_locator.locator('b')
+                    word_elements = blockquote_locator.locator("b")
 
                     for j in range(word_elements.count()):
                         word = word_elements.nth(j).inner_text().strip()
@@ -113,7 +115,9 @@ def vocab_refresh(
                     # stop processing the lessons
                     break
 
-                console.print(f"[green]Found {len(completed_words)} words from a completed lesson.[/green]")
+                console.print(
+                    f"[green]Found {len(completed_words)} words from a completed lesson.[/green]"
+                )
 
             except Exception as e:
                 console.print(f"[red]Could not process lesson. Skipping... ({e})[/red]")
@@ -123,7 +127,10 @@ def vocab_refresh(
 
         # Save all unique words
         save_vocab_to_file(list(completed_words))
-        console.print(f"[green]Scraping complete. Total unique words saved: {len(completed_words)}[/green]")
+        console.print(
+            f"[green]Scraping complete. Total unique words saved: {len(completed_words)}[/green]"
+        )
+
 
 # -------------------------------
 # Subcommand 2: write
@@ -134,10 +141,10 @@ def write():
     Practice writing vocabulary by translating words.
     """
     console.print("[yellow]Starting vocabulary writing practice...[/yellow]")
-    
+
     # Load data from the now-real vocab file
     vocab = load_vocab_from_file()
-    
+
     if not vocab:
         console.print("[yellow]No words to practice. The vocab file is empty.[/yellow]")
         raise typer.Exit()
@@ -146,7 +153,7 @@ def write():
     total_questions = 0
 
     # Simple loop for a basic demo
-    for entry in vocab[:5]: # Practice with the first 5 words for a quick test
+    for entry in vocab[:5]:  # Practice with the first 5 words for a quick test
         # Note: the words are now just a list, not a dictionary with translations.
         spanish_word = entry
 
@@ -155,15 +162,20 @@ def write():
         total_questions += 1
 
         # Simple verification
-        if user_input.lower().strip() == "": # We can't verify yet without a dictionary
-            console.print(f"[red]Cannot verify. The correct translation is unknown.[/red]")
+        if user_input.lower().strip() == "":  # We can't verify yet without a dictionary
+            console.print(
+                f"[red]Cannot verify. The correct translation is unknown.[/red]"
+            )
         else:
             console.print(f"[green]Good attempt![/green]")
             correct_count += 1
 
     # Mocking the session end logic
     console.print("\n[bold]Practice session ended.[/bold]")
-    console.print(f"You answered {correct_count} out of {total_questions} words correctly.")
+    console.print(
+        f"You answered {correct_count} out of {total_questions} words correctly."
+    )
+
 
 # -------------------------------
 # Subcommand 3: speak
@@ -173,8 +185,12 @@ def speak():
     """
     Practice speaking vocabulary by listening and responding.
     """
-    console.print("[yellow]Starting vocabulary speaking practice... (FEATURE NOT YET IMPLEMENTED)[/yellow]")
-    console.print("This feature will be built in Phase 4. For now, try 'duo-recall write'.")
+    console.print(
+        "[yellow]Starting vocabulary speaking practice... (FEATURE NOT YET IMPLEMENTED)[/yellow]"
+    )
+    console.print(
+        "This feature will be built in Phase 4. For now, try 'duo-recall write'."
+    )
 
 
 if __name__ == "__main__":

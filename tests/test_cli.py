@@ -4,6 +4,7 @@ from duo_recall import app, VOCAB_FILE
 
 runner = CliRunner()
 
+
 def test_vocab_refresh_command_succeeds():
     """Test the vocab-refresh command creates the vocab file."""
     # Check if file exists, if so delete it for a clean test
@@ -17,6 +18,7 @@ def test_vocab_refresh_command_succeeds():
     assert result.exit_code == 0
     assert "Successfully saved vocabulary to 'my-vocab.json'" in result.stdout
     assert VOCAB_FILE.exists()
+
 
 def test_write_command_fails_without_file():
     """Test that the write command exits gracefully if the vocab file is missing."""
