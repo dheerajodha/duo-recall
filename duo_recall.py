@@ -1,7 +1,7 @@
 import json
 import typer
 from pathlib import Path
-from typing import List, Dict
+from typing import List
 from rich.console import Console
 from rich.prompt import Prompt
 from playwright.sync_api import sync_playwright
@@ -164,10 +164,10 @@ def write():
         # Simple verification
         if user_input.lower().strip() == "":  # We can't verify yet without a dictionary
             console.print(
-                f"[red]Cannot verify. The correct translation is unknown.[/red]"
+                "[red]Cannot verify. The correct translation is unknown.[/red]"
             )
         else:
-            console.print(f"[green]Good attempt![/green]")
+            console.print("[green]Good attempt![/green]")
             correct_count += 1
 
     # Mocking the session end logic

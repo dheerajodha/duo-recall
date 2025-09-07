@@ -1,4 +1,3 @@
-import pytest
 from typer.testing import CliRunner
 from duo_recall import app, VOCAB_FILE
 
