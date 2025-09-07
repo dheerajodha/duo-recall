@@ -1,10 +1,12 @@
 import json
 import typer
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Any
 from rich.console import Console
 from rich.prompt import Prompt
 from playwright.sync_api import sync_playwright
+import random
+import re
 
 # Use Rich for better terminal output
 console = Console()
@@ -17,13 +19,14 @@ app = typer.Typer(
 
 # File path for data
 VOCAB_FILE = Path("my-vocab.json")
+TRANSLATED_VOCAB_FILE = Path("my-vocab-translated.json")
 
 
 # --- Utility Functions ---
 def save_vocab_to_file(vocab: List[str]):
     """Saves the vocabulary list to a JSON file."""
     try:
-        with open(VOCAB_FILE, "w") as f:
+        with open(VOCAB_FILE, "w", encoding="utf-8") as f:
             json.dump(vocab, f, indent=2, ensure_ascii=False)
         console.print(f"[green]Successfully saved vocabulary to '{VOCAB_FILE}'[/green]")
     except IOError as e:
@@ -40,10 +43,35 @@ def load_vocab_from_file() -> List[str]:
         raise typer.Exit(code=1)
 
     try:
-        with open(VOCAB_FILE, "r") as f:
+        with open(VOCAB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except (IOError, json.JSONDecodeError) as e:
         console.print(f"[red]Error reading '{VOCAB_FILE}': {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+def load_translated_vocab() -> Dict[str, Any]:
+    """Loads the translated vocabulary list from a JSON file."""
+    if TRANSLATED_VOCAB_FILE.exists():
+        try:
+            with open(TRANSLATED_VOCAB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (IOError, json.JSONDecodeError) as e:
+            console.print(f"[red]Error reading translated vocabulary file: {e}[/red]")
+            return {}
+    return {}
+
+
+def save_translated_vocab(translated_vocab: Dict[str, Any]):
+    """Saves the translated vocabulary to a JSON file."""
+    try:
+        with open(TRANSLATED_VOCAB_FILE, "w", encoding="utf-8") as f:
+            json.dump(translated_vocab, f, indent=2, ensure_ascii=False)
+        console.print(
+            f"[green]Successfully saved translated vocabulary to '{TRANSLATED_VOCAB_FILE}'[/green]"
+        )
+    except IOError as e:
+        console.print(f"[red]Error saving translated vocabulary file: {e}[/red]")
         raise typer.Exit(code=1)
 
 
@@ -149,31 +177,90 @@ def write():
         console.print("[yellow]No words to practice. The vocab file is empty.[/yellow]")
         raise typer.Exit()
 
+    # Load existing translations
+    translated_vocab = load_translated_vocab()
+
+    # Find words that need to be translated
+    words_to_translate = [word for word in vocab if word not in translated_vocab]
+
+    if not words_to_translate and translated_vocab:
+        console.print("[green]All words already translated. Starting quiz.[/green]")
+        pass  # Skip the translation scraping
+    else:
+        console.print(
+            f"[cyan]Translating {len(words_to_translate)} new words...[/cyan]"
+        )
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=False)
+            page = browser.new_page()
+            page.goto("https://duome.eu/vocabulary/en/es")
+            page.wait_for_selector("input#seek")
+
+            search_input = page.locator("input#seek")
+
+            for spanish_word in words_to_translate:
+                try:
+                    search_input.fill(spanish_word)
+                    page.keyboard.press("Enter")
+
+                    match_span = page.locator(
+                        f'span.wA:text-is("{spanish_word}")'
+                    ).first
+                    match_span.wait_for(state="visible", timeout=50000)
+
+                    title_attr = match_span.get_attribute("title")
+
+                    translations_string = re.sub(r"\[.*?\]", "", title_attr).strip()
+                    translations_list = [
+                        t.strip() for t in translations_string.split(",") if t.strip()
+                    ]
+
+                    translated_vocab[spanish_word] = translations_list
+
+                    console.print(
+                        f"[green]Found translations for '{spanish_word}': {translations_list}[/green]"
+                    )
+
+                except Exception as e:
+                    console.print(
+                        f"[red]Could not find translation for '{spanish_word}'. Skipping... ({e})[/red]"
+                    )
+
+            browser.close()
+            save_translated_vocab(translated_vocab)
+
+    if not translated_vocab:
+        console.print("[red]No translations found. Cannot start quiz.[/red]")
+        raise typer.Exit()
+
+    console.print("[green]Translations loaded. Starting quiz.[/green]")
+
     correct_count = 0
     total_questions = 0
 
-    # Simple loop for a basic demo
-    for entry in vocab[:5]:  # Practice with the first 5 words for a quick test
-        # Note: the words are now just a list, not a dictionary with translations.
-        spanish_word = entry
+    # Get a list of words to quiz from the translated dictionary
+    quiz_words = list(translated_vocab.keys())
+    questions_to_ask = min(len(quiz_words), 10)
+    questions = random.sample(quiz_words, questions_to_ask)
+
+    for spanish_word in questions:
+        english_translations = translated_vocab[spanish_word]
 
         user_input = Prompt.ask(f"Translate '{spanish_word}'")
-
         total_questions += 1
 
-        # Simple verification
-        if user_input.lower().strip() == "":  # We can't verify yet without a dictionary
-            console.print(
-                "[red]Cannot verify. The correct translation is unknown.[/red]"
-            )
-        else:
-            console.print("[green]Good attempt![/green]")
+        if user_input.lower().strip() in [t.lower() for t in english_translations]:
+            console.print("[green]Correct![/green]")
             correct_count += 1
+        else:
+            console.print(
+                f"[red]Incorrect.[/red] The correct translations are '[bold]{', '.join(english_translations)}[/bold]'."
+            )
 
-    # Mocking the session end logic
     console.print("\n[bold]Practice session ended.[/bold]")
     console.print(
-        f"You answered {correct_count} out of {total_questions} words correctly."
+        f"🏆 Score: [bold]{correct_count}[/bold]/[bold]{total_questions}[/bold] ({(correct_count / total_questions * 100):.1f}%)"
     )
 
 
