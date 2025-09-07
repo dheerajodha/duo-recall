@@ -1,8 +1,8 @@
-import pytest
 from typer.testing import CliRunner
 from duo_recall import app, VOCAB_FILE
 
 runner = CliRunner()
+
 
 def test_vocab_refresh_command_succeeds():
     """Test the vocab-refresh command creates the vocab file."""
@@ -11,12 +11,13 @@ def test_vocab_refresh_command_succeeds():
         VOCAB_FILE.unlink()
 
     # Run the command
-    result = runner.invoke(app, ["vocab-refresh"])
+    result = runner.invoke(app, ["vocab-refresh", "--username", "IamSpaceCowboy"])
 
     # Assert that the command completed successfully and the file was created
     assert result.exit_code == 0
     assert "Successfully saved vocabulary to 'my-vocab.json'" in result.stdout
     assert VOCAB_FILE.exists()
+
 
 def test_write_command_fails_without_file():
     """Test that the write command exits gracefully if the vocab file is missing."""
