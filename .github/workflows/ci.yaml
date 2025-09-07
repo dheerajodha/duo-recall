@@ -1,0 +1,27 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build . --tag duo-recall-cli:latest
+
+      - name: Run Black linter
+        run: docker run duo-recall-cli:latest black --check .
+
+      - name: Run Flake8 linter
+        run: docker run duo-recall-cli:latest flake8 .
+
+      - name: Run Pytest tests
+        run: docker run -v ${{ github.workspace }}:/app duo-recall-cli:latest pytest tests/
