@@ -101,7 +101,7 @@ def vocab_refresh(
         # Navigate to the user's profile
         url = f"https://duome.eu/{username}/en/es"
         console.print(f"[cyan]Navigating to {url}[/cyan]")
-        page.goto(url)
+        page.goto(url, timeout=60000)
         page.wait_for_selector('label[for="tabSkills"]')
 
         # Click on the "Skills" tab
