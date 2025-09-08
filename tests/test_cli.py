@@ -11,7 +11,9 @@ def test_vocab_refresh_command_succeeds():
         VOCAB_FILE.unlink()
 
     # Run the command
-    result = runner.invoke(app, ["vocab-refresh", "--username", "IamSpaceCowboy"])
+    result = runner.invoke(
+        app, ["vocab-refresh", "--username", "IamSpaceCowboy", "--headless"]
+    )
 
     # Assert that the command completed successfully and the file was created
     assert result.exit_code == 0

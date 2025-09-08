@@ -63,5 +63,7 @@ RUN playwright install
 # Copy the rest of the application's code
 COPY . .
 
+ENV PYTHONPATH=/app
+
 # Set a command to run when the container starts
 CMD ["python", "duo_recall.py", "--help"]
