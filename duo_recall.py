@@ -238,25 +238,40 @@ def write():
 
     correct_count = 0
     total_questions = 0
+    question_index = 0
 
     # Get a list of words to quiz from the translated dictionary
     quiz_words = list(translated_vocab.keys())
-    questions_to_ask = min(len(quiz_words), 10)
-    questions = random.sample(quiz_words, questions_to_ask)
+    random.shuffle(quiz_words)
 
-    for spanish_word in questions:
-        english_translations = translated_vocab[spanish_word]
+    while question_index < len(quiz_words):
+        batch_size = min(10, len(quiz_words) - question_index)
+        questions = quiz_words[question_index : question_index + batch_size]
+        question_index += batch_size
 
-        user_input = Prompt.ask(f"Translate '{spanish_word}'")
-        total_questions += 1
+        for spanish_word in questions:
+            english_translations = translated_vocab[spanish_word]
 
-        if user_input.lower().strip() in [t.lower() for t in english_translations]:
-            console.print("[green]Correct![/green]")
-            correct_count += 1
-        else:
-            console.print(
-                f"[red]Incorrect.[/red] The correct translations are '[bold]{', '.join(english_translations)}[/bold]'."
+            user_input = Prompt.ask(f"Translate '{spanish_word}'")
+            total_questions += 1
+
+            if user_input.lower().strip() in [t.lower() for t in english_translations]:
+                console.print("[green]Correct![/green]")
+                correct_count += 1
+            else:
+                console.print(
+                    f"[red]Incorrect.[/red] The correct translations are '[bold]{', '.join(english_translations)}[/bold]'."
+                )
+
+        question_index += batch_size
+
+        # Ask if user wants to continue (only if there are more questions)
+        if question_index < len(quiz_words):
+            continue_prompt = Prompt.ask(
+                f"[yellow]You've completed {total_questions} questions. Continue with more? (y/n)[/yellow]"
             )
+            if continue_prompt.lower() != "y":
+                break
 
     console.print("\n[bold]Practice session ended.[/bold]")
     console.print(
