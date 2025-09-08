@@ -82,7 +82,10 @@ def save_translated_vocab(translated_vocab: Dict[str, Any]):
 def vocab_refresh(
     username: str = typer.Option(
         ..., "--username", "-u", help="Your Duolingo username."
-    )
+    ),
+    headless: bool = typer.Option(
+        False, "-h", "--headless", help="Run browser in headless mode (no GUI)."
+    ),
 ):
     """
     Refreshes the local vocabulary list by scraping Duome.eu.
@@ -92,7 +95,7 @@ def vocab_refresh(
     )
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=headless)
         page = browser.new_page()
 
         # Navigate to the user's profile
