@@ -88,11 +88,24 @@ def vocab_refresh(
     ),
 ):
     """
-    Refreshes the local vocabulary list by scraping Duome.eu.
+    Refreshes the local vocabulary list by scraping Duome.eu, adding only new words.
     """
     console.print(
         f"[yellow]Starting vocabulary refresh for user: [bold]{username}[/bold]...[/yellow]"
     )
+
+    # Load existing vocabulary
+    existing_vocab = set()
+    if VOCAB_FILE.exists():
+        try:
+            with open(VOCAB_FILE, "r", encoding="utf-8") as f:
+                existing_vocab = set(json.load(f))
+            console.print(
+                f"[cyan]Loaded {len(existing_vocab)} existing words from '{VOCAB_FILE}'[/cyan]"
+            )
+        except (IOError, json.JSONDecodeError) as e:
+            console.print(f"[yellow]Could not load existing vocabulary: {e}[/yellow]")
+            console.print("[yellow]Starting with empty vocabulary list.[/yellow]")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
@@ -110,7 +123,7 @@ def vocab_refresh(
         page.wait_for_selector("ul.paddedSkills")
 
         # Scrape words from all completed lessons
-        completed_words = []
+        all_scraped_words = []
         seen_words = set()
 
         # Get all list items (lessons)
@@ -140,14 +153,14 @@ def vocab_refresh(
                     for j in range(word_elements.count()):
                         word = word_elements.nth(j).inner_text().strip()
                         if word not in seen_words:
-                            completed_words.append(word)
+                            all_scraped_words.append(word)
                             seen_words.add(word)
                 else:
                     # stop processing the lessons
                     break
 
                 console.print(
-                    f"[green]Found {len(completed_words)} words from a completed lesson.[/green]"
+                    f"[green]Found {len(all_scraped_words)} words from a completed lesson.[/green]"
                 )
 
             except Exception as e:
@@ -156,11 +169,26 @@ def vocab_refresh(
 
         browser.close()
 
-        # Save all unique words
-        save_vocab_to_file(list(completed_words))
-        console.print(
-            f"[green]Scraping complete. Total unique words saved: {len(completed_words)}[/green]"
-        )
+        # Filter to only new words
+        new_words = [word for word in all_scraped_words if word not in existing_vocab]
+
+        if new_words:
+            console.print(
+                f"\n[bold green]Found {len(new_words)} new words:[/bold green]"
+            )
+            for word in new_words:
+                console.print(f"  • {word}")
+
+            # Update the vocabulary file with existing + new words
+            updated_vocab = list(existing_vocab) + new_words
+            save_vocab_to_file(updated_vocab)
+            console.print(
+                f"\n[green]Added {len(new_words)} new words to vocabulary. Total words: {len(updated_vocab)}[/green]"
+            )
+        else:
+            console.print(
+                f"\n[yellow]No new words found. All {len(all_scraped_words)} scraped words already exist in vocabulary.[/yellow]"
+            )
 
 
 # -------------------------------
